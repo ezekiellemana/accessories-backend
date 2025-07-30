@@ -21,6 +21,7 @@ exports.getAllProducts = async (req, res) => {
   }
 };
 
+
 // @desc Update product (Admin only)
 exports.updateProduct = async (req, res) => {
   try {
