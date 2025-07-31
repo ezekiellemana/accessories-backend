@@ -11,15 +11,79 @@ exports.createProduct = async (req, res) => {
   }
 };
 
-// @desc Get all products (Public)
+// @desc Get all products (Public) with search, filters, sorting & pagination
 exports.getAllProducts = async (req, res) => {
   try {
-    const products = await Product.find();
-    res.json(products);
+    let queryObj = {};
+    const { search, category, minPrice, maxPrice, inStock, sort, page = 1, limit = 10 } = req.query;
+
+    // Search by name or description (case-insensitive)
+    if (search) {
+      queryObj.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+
+    // Filter by category
+    if (category) {
+      queryObj.category = category;
+    }
+
+    // Filter by price range
+    if (minPrice || maxPrice) {
+      queryObj.price = {};
+      if (minPrice) queryObj.price.$gte = Number(minPrice);
+      if (maxPrice) queryObj.price.$lte = Number(maxPrice);
+    }
+
+    // Filter by stock availability (inStock=true means stock > 0)
+    if (inStock) {
+      queryObj.stock = { $gt: 0 };
+    }
+
+    // Build the query
+    let mongoQuery = Product.find(queryObj);
+
+    // Sorting options
+    if (sort) {
+      // Examples: sort=price_asc, sort=price_desc, sort=name_asc, sort=name_desc
+      const [field, order] = sort.split('_');
+      const sortOrder = order === 'asc' ? 1 : -1;
+      mongoQuery = mongoQuery.sort({ [field]: sortOrder });
+    } else {
+      mongoQuery = mongoQuery.sort({ createdAt: -1 }); // default: newest first
+    }
+
+    // Pagination
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+    const skip = (pageNum - 1) * limitNum;
+
+    mongoQuery = mongoQuery.skip(skip).limit(limitNum);
+
+    // Execute query
+    const products = await mongoQuery;
+
+    // Get total count for pagination info
+    const total = await Product.countDocuments(queryObj);
+    const totalPages = Math.ceil(total / limitNum);
+
+    res.json({
+      products,
+      pagination: {
+        total,
+        totalPages,
+        currentPage: pageNum,
+        pageSize: limitNum,
+      },
+    });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
   }
 };
+
 
 
 // @desc Update product (Admin only)
