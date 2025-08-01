@@ -17,7 +17,7 @@ app.use(express.json());
 
 // Test route
 app.get('/', (req, res) => {
-  res.send('Accessories API is running 🎧');
+  res.send('Accessories System API is running 🎧');
 });
 // Auth Route
 app.use('/api/auth', require('./routes/authRoutes'));
