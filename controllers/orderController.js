@@ -1,6 +1,6 @@
 const Order = require("../models/Order");
 const User = require("../models/User");
-const { sendEmail } = require("../utils/email"); // Adjust path accordingly
+const { sendEmail } = require("../utils/sendEmail"); // Adjust path accordingly
 
 const validStatuses = ['pending', 'approved', 'shipped', 'delivered'];
 

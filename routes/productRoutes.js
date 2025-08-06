@@ -10,7 +10,7 @@ const {
   deleteProduct,
 } = require('../controllers/productController');
 
-const { protect, adminOnly } = require('../middleware/authMiddleware');
+const { protect, adminOnly } = require('../middleware/auth');
 
 const validate = (validations) => async (req, res, next) => {
   await Promise.all(validations.map((v) => v.run(req)));
