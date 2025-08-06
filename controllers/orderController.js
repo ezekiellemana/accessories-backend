@@ -1,9 +1,23 @@
 const Order = require("../models/Order");
+const User = require("../models/User");
+const { sendEmail } = require("../utils/email"); // Adjust path accordingly
 
-// @desc Place new order
-exports.placeOrder = async (req, res) => {
+const validStatuses = ['pending', 'approved', 'shipped', 'delivered'];
+
+exports.placeOrder = async (req, res, next) => {
   try {
     const { products, deliveryInfo, paymentMethod } = req.body;
+
+    // Basic validation (expand as needed)
+    if (!products || products.length === 0) {
+      return res.status(400).json({ message: 'Order must include at least one product' });
+    }
+    if (!deliveryInfo?.address || !deliveryInfo?.phone) {
+      return res.status(400).json({ message: 'Delivery address and phone required' });
+    }
+    if (!['cash', 'mobile_money'].includes(paymentMethod)) {
+      return res.status(400).json({ message: 'Invalid payment method' });
+    }
 
     const newOrder = await Order.create({
       userId: req.user.id,
@@ -12,7 +26,6 @@ exports.placeOrder = async (req, res) => {
       paymentMethod,
     });
 
-    // Fetch user email
     const user = await User.findById(req.user.id);
     if (user) {
       const emailHTML = `
@@ -28,42 +41,39 @@ exports.placeOrder = async (req, res) => {
       await sendEmail(user.email, "Order Confirmation", emailHTML);
     }
 
-    res.status(201).json(newOrder);
+    res.status(201).json({ success: true, data: newOrder });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    next(err);
   }
 };
 
-// @desc Get customer's orders
-exports.getMyOrders = async (req, res) => {
+exports.getMyOrders = async (req, res, next) => {
   try {
-    const orders = await Order.find({ userId: req.user.id }).populate(
-      "products.productId"
-    );
-    res.json(orders);
+    const orders = await Order.find({ userId: req.user.id }).populate("products.productId");
+    res.json({ success: true, data: orders });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    next(err);
   }
 };
 
-// @desc Admin: get all orders
-exports.getAllOrders = async (req, res) => {
+exports.getAllOrders = async (req, res, next) => {
   try {
     const orders = await Order.find()
-      .populate("userId")
+      .populate("userId", "name email") // limit fields to reduce payload
       .populate("products.productId");
-    res.json(orders);
+    res.json({ success: true, data: orders });
   } catch (err) {
-    res.status(500).json({ message: "Server error" });
+    next(err);
   }
 };
 
-// @desc Admin: update order status
-// Update order status (admin only)
-exports.updateOrderStatus = async (req, res) => {
+exports.updateOrderStatus = async (req, res, next) => {
   try {
     const { status } = req.body;
+
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: "Invalid status value" });
+    }
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,
@@ -77,9 +87,10 @@ exports.updateOrderStatus = async (req, res) => {
 
     res.json({
       message: "Order status updated successfully",
-      order,
+      success: true,
+      data: order,
     });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    next(error);
   }
 };
