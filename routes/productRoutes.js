@@ -1,32 +1,18 @@
 const express = require('express');
-const router = express.Router();
-const { body, param, validationResult } = require('express-validator');
+const { body, param } = require('express-validator');
 const mongoose = require('mongoose');
-
-const {
-  createProduct,
-  getAllProducts,
-  updateProduct,
-  deleteProduct,
-} = require('../controllers/productController');
-
+const { createProduct, getAllProducts, updateProduct, deleteProduct } = require('../controllers/productController');
 const { protect, adminOnly } = require('../middleware/auth');
+const validate = require('../middleware/validate');
+const catchAsync = require('../middleware/catchAsync');
 
-const validate = (validations) => async (req, res, next) => {
-  await Promise.all(validations.map((v) => v.run(req)));
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  next();
-};
-
+const router = express.Router();
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
-// Public route
-router.get('/', getAllProducts);
+// Public
+router.get('/', catchAsync(getAllProducts));
 
-// Admin routes
+// Admin only
 router.post(
   '/',
   protect,
@@ -39,7 +25,7 @@ router.post(
     body('stock').isInt({ min: 0 }).withMessage('Stock must be zero or greater'),
     body('image').optional().isURL().withMessage('Image must be a valid URL'),
   ]),
-  createProduct
+  catchAsync(createProduct)
 );
 
 router.put(
@@ -55,15 +41,17 @@ router.put(
     body('stock').optional().isInt({ min: 0 }).withMessage('Stock must be zero or greater'),
     body('image').optional().isURL().withMessage('Image must be a valid URL'),
   ]),
-  updateProduct
+  catchAsync(updateProduct)
 );
 
 router.delete(
   '/:id',
   protect,
   adminOnly,
-  validate([param('id').custom(isValidObjectId).withMessage('Invalid product ID')]),
-  deleteProduct
+  validate([
+    param('id').custom(isValidObjectId).withMessage('Invalid product ID'),
+  ]),
+  catchAsync(deleteProduct)
 );
 
 module.exports = router;
